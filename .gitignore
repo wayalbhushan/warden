@@ -5,7 +5,8 @@
 *.so
 *.dylib
 bin/
-warden
+/warden
+/cmd/warden/warden
 
 # Test binary
 *.test
