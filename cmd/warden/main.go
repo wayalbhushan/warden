@@ -1,10 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/bhushanwayal/warden/internal/config"
+	"github.com/bhushanwayal/warden/internal/proxy"
 )
 
 func main() {
@@ -29,4 +33,29 @@ func main() {
 		slog.String("log_level", cfg.LogLevel),
 		slog.String("env", cfg.Env),
 	)
+
+	// Initialize reverse proxy handler
+	reverseProxy, err := proxy.New(cfg.UpstreamURL)
+	if err != nil {
+		slog.Error("failed to initialize reverse proxy", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", reverseProxy)
+
+	server := &http.Server{
+		Addr:         fmt.Sprintf(":%d", cfg.Port),
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	slog.Info("Warden gateway server started", slog.Int("port", cfg.Port), slog.String("upstream", cfg.UpstreamURL))
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		slog.Error("Warden gateway server failed", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
 }
