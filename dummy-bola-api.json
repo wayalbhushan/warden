@@ -1,0 +1,1 @@
+{"openapi":"3.0.0","info":{"title":"Dummy BOLA","version":"1.0"},"paths":{"/documents/{id}":{"get":{"security":[{"BearerAuth":[]}],"responses":{"200":{"description":"OK"}}}}}}

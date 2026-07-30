@@ -22,6 +22,13 @@ type Finding struct {
 	Details  string
 }
 
+// ScanConfig defines multi-user authentication credentials and resource IDs for active BOLA/IDOR testing.
+type ScanConfig struct {
+	UserAToken  string `json:"user_a_token"`
+	UserBToken  string `json:"user_b_token"`
+	ResourceIDA string `json:"resource_id_a"`
+}
+
 // ParseSpec loads and parses an OpenAPI 3.x spec from a file path into a list of Endpoints.
 func ParseSpec(filePath string) ([]Endpoint, error) {
 	ctx := context.Background()

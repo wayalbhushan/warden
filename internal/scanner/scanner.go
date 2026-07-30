@@ -1,16 +1,33 @@
 package scanner
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 )
 
 // RunScan parses the provided OpenAPI spec file, executes active security checks, and logs findings.
-func RunScan(specPath string, targetURL string) error {
+func RunScan(specPath string, targetURL string, configPath string) error {
 	slog.Info("Starting OpenAPI spec scanner mode",
 		slog.String("spec_path", specPath),
 		slog.String("target_url", targetURL),
+		slog.String("config_path", configPath),
 	)
+
+	var scanCfg ScanConfig
+	if configPath != "" {
+		data, err := os.ReadFile(configPath)
+		if err != nil {
+			return fmt.Errorf("failed to read scan config file %s: %w", configPath, err)
+		}
+		if err := json.Unmarshal(data, &scanCfg); err != nil {
+			return fmt.Errorf("failed to parse scan config JSON: %w", err)
+		}
+		slog.Info("Loaded scan configuration for multi-user BOLA testing",
+			slog.String("resource_id_a", scanCfg.ResourceIDA),
+		)
+	}
 
 	endpoints, err := ParseSpec(specPath)
 	if err != nil {
@@ -29,14 +46,21 @@ func RunScan(specPath string, targetURL string) error {
 
 	slog.Info("Executing active security scan modules...")
 
-	// Run Missing Authentication vulnerability check
-	findings := TestMissingAuth(endpoints, targetURL)
+	var allFindings []Finding
 
-	if len(findings) == 0 {
+	// Module 1: Missing Authentication Scanner
+	missingAuthFindings := TestMissingAuth(endpoints, targetURL)
+	allFindings = append(allFindings, missingAuthFindings...)
+
+	// Module 2: BOLA / IDOR Cross-Access Scanner
+	bolaFindings := TestBOLA(endpoints, targetURL, scanCfg)
+	allFindings = append(allFindings, bolaFindings...)
+
+	if len(allFindings) == 0 {
 		slog.Info("Scan completed cleanly: 0 security vulnerabilities detected")
 	} else {
-		slog.Warn("Scan completed with security findings!", slog.Int("finding_count", len(findings)))
-		for _, f := range findings {
+		slog.Warn("Scan completed with security findings!", slog.Int("finding_count", len(allFindings)))
+		for _, f := range allFindings {
 			slog.Warn("SECURITY VULNERABILITY DETECTED",
 				slog.String("type", f.Type),
 				slog.String("severity", f.Severity),

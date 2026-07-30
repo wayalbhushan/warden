@@ -24,6 +24,7 @@ func main() {
 	// Parse CLI flags for scanner mode
 	scanPath := flag.String("scan", "", "Path to OpenAPI JSON/YAML spec file to run active security scan")
 	targetURL := flag.String("target", "", "Base URL of the target API for scanner mode")
+	configPath := flag.String("config", "", "Path to optional scan config JSON file (contains tokens & resource IDs)")
 	flag.Parse()
 
 	// Initialize JSON structured logger using Go standard library slog
@@ -34,7 +35,7 @@ func main() {
 
 	// If -scan flag is set, execute scanner mode and exit without starting HTTP server
 	if *scanPath != "" {
-		if err := scanner.RunScan(*scanPath, *targetURL); err != nil {
+		if err := scanner.RunScan(*scanPath, *targetURL, *configPath); err != nil {
 			slog.Error("Scanner mode failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
