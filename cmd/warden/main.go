@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -15,17 +16,32 @@ import (
 	"github.com/bhushanwayal/warden/internal/config"
 	"github.com/bhushanwayal/warden/internal/proxy"
 	"github.com/bhushanwayal/warden/internal/ratelimit"
+	"github.com/bhushanwayal/warden/internal/scanner"
 	"github.com/bhushanwayal/warden/internal/security"
 )
 
 func main() {
+	// Parse CLI flags for scanner mode
+	scanPath := flag.String("scan", "", "Path to OpenAPI JSON/YAML spec file to run active security scan")
+	targetURL := flag.String("target", "", "Base URL of the target API for scanner mode")
+	flag.Parse()
+
 	// Initialize JSON structured logger using Go standard library slog
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 	slog.SetDefault(logger)
 
-	// Load environment configuration
+	// If -scan flag is set, execute scanner mode and exit without starting HTTP server
+	if *scanPath != "" {
+		if err := scanner.RunScan(*scanPath, *targetURL); err != nil {
+			slog.Error("Scanner mode failed", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
+	// Load environment configuration for API Gateway mode
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("failed to load configuration", slog.String("error", err.Error()))
