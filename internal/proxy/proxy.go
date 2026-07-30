@@ -1,14 +1,104 @@
 package proxy
 
-// Proxy handles reverse proxy request routing and traffic forwarding.
+import (
+	"fmt"
+	"log/slog"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"time"
+)
+
+// Proxy handles reverse proxy request routing and traffic forwarding to upstream services.
 type Proxy struct {
-	// Target upstream address for proxying requests
-	targetURL string
+	targetURL    *url.URL
+	reverseProxy *httputil.ReverseProxy
 }
 
-// New creates a new Proxy instance.
-func New(targetURL string) *Proxy {
-	return &Proxy{
-		targetURL: targetURL,
+// responseWriterWrapper captures the HTTP status code written by the proxy.
+type responseWriterWrapper struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (rw *responseWriterWrapper) WriteHeader(code int) {
+	rw.statusCode = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+// New creates a new Proxy instance targeting the specified upstream URL.
+func New(targetURLStr string) (*Proxy, error) {
+	parsedURL, err := url.Parse(targetURLStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid upstream URL %q: %w", targetURLStr, err)
 	}
+
+	rp := httputil.NewSingleHostReverseProxy(parsedURL)
+
+	// Wrap original director to customize request headers
+	originalDirector := rp.Director
+	rp.Director = func(req *http.Request) {
+		originalDirector(req)
+
+		// Inject gateway tracking header
+		req.Header.Set("X-Warden-Gateway", "active")
+
+		// Ensure forwarded headers are set
+		if req.Header.Get("X-Forwarded-Host") == "" {
+			req.Header.Set("X-Forwarded-Host", req.Host)
+		}
+		if req.Header.Get("X-Forwarded-Proto") == "" {
+			if req.TLS != nil {
+				req.Header.Set("X-Forwarded-Proto", "https")
+			} else {
+				req.Header.Set("X-Forwarded-Proto", "http")
+			}
+		}
+	}
+
+	// Add tracking header to response
+	rp.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Set("X-Warden-Gateway", "active")
+		return nil
+	}
+
+	// Handle upstream connection errors gracefully
+	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		slog.Error("upstream service error",
+			slog.String("path", r.URL.Path),
+			slog.String("upstream", parsedURL.String()),
+			slog.String("error", err.Error()),
+		)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Warden-Gateway", "active")
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`{"error":"bad gateway","message":"upstream service unavailable"}`))
+	}
+
+	return &Proxy{
+		targetURL:    parsedURL,
+		reverseProxy: rp,
+	}, nil
+}
+
+// ServeHTTP intercepts incoming HTTP requests, logs metadata, and forwards to upstream backend.
+func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	wrapper := &responseWriterWrapper{
+		ResponseWriter: w,
+		statusCode:     http.StatusOK,
+	}
+
+	p.reverseProxy.ServeHTTP(wrapper, r)
+
+	duration := time.Since(start)
+
+	slog.Info("proxied request",
+		slog.String("method", r.Method),
+		slog.String("path", r.URL.Path),
+		slog.String("remote_addr", r.RemoteAddr),
+		slog.Int("status", wrapper.statusCode),
+		slog.Duration("latency", duration),
+	)
 }
