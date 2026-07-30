@@ -30,3 +30,6 @@ vendor/
 # OS specific
 .DS_Store
 Thumbs.db
+
+# Benchmark results
+scripts/*_results.txt

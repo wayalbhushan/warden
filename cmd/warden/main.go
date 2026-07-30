@@ -97,7 +97,7 @@ func main() {
 
 	// Build middleware execution chain: Metrics -> RateLimit -> Auth -> Security -> ReverseProxy
 	metricsMiddleware := observability.MetricsMiddleware
-	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 5, time.Minute)
+	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 50000, time.Minute)
 	protectedHandler := metricsMiddleware(rateLimitMiddleware(authMiddleware(securityMiddleware(reverseProxy))))
 
 	mux := http.NewServeMux()
