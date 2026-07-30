@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* ===== MONOCHROME PALETTE ===== */
+  --color-background: #FFFFFF;
+  --color-foreground: #000000;
+  --color-muted: #F5F5F5;
+  --color-muted-foreground: #525252;
+  --color-border: #000000;
+  --color-border-light: #E5E5E5;
+
+  /* ===== TYPOGRAPHY ===== */
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-body: var(--font-source-serif), Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  /* ===== ZERO BORDER RADIUS ===== */
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-full: 0px;
+}
+
+@layer base {
+  *, *::before, *::after {
+    border-radius: 0 !important;
+  }
+
+  body {
+    background-color: #FFFFFF;
+    color: #000000;
+    font-family: var(--font-source-serif), Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-image:
+      linear-gradient(#00000008 1px, transparent 1px),
+      linear-gradient(90deg, #00000008 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Focus visible accessibility */
+  *:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px #fff, 0 0 0 6px #000;
+  }
+
+  /* Remove all transitions globally — instant snaps only */
+  .transition-none {
+    transition-property: none !important;
+    transition-duration: 0ms !important;
+  }
+}
