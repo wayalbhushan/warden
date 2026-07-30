@@ -95,9 +95,10 @@ func main() {
 	ssrfEngine := security.NewSSRPEngine()
 	securityMiddleware := security.NewSecurityMiddleware(sigEngine, ssrfEngine, bolaEngine)
 
-	// Build middleware execution chain: RateLimit -> Auth -> Security -> ReverseProxy
+	// Build middleware execution chain: Metrics -> RateLimit -> Auth -> Security -> ReverseProxy
+	metricsMiddleware := observability.MetricsMiddleware
 	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 5, time.Minute)
-	protectedHandler := rateLimitMiddleware(authMiddleware(securityMiddleware(reverseProxy)))
+	protectedHandler := metricsMiddleware(rateLimitMiddleware(authMiddleware(securityMiddleware(reverseProxy))))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", protectedHandler)
