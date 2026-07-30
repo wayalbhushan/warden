@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    container_name: warden-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  echo-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.echo
+    container_name: warden-echo-backend
+    ports:
+      - "8081:8081"
+    environment:
+      - ECHO_PORT=8081
+    restart: unless-stopped
+
+  warden:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: warden-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - UPSTREAM_URL=http://echo-backend:8081
+      - REDIS_URL=redis:6379
+      - LOG_LEVEL=info
+      - ENV=development
+    depends_on:
+      redis:
+        condition: service_healthy
+      echo-backend:
+        condition: service_started
+    restart: unless-stopped
