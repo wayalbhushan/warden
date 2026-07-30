@@ -387,7 +387,7 @@ export default function InfrastructurePage() {
           <div className="flex items-center gap-2">
             <SlidersHorizontal size={16} className="text-emerald-400" />
             <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 font-mono">
-              Live Animated Packet Flow Stream (Click nodes to inspect)
+              Live Packet Flow Stream (Click nodes to inspect)
             </p>
           </div>
           <span className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">

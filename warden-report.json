@@ -2,31 +2,11 @@
   {
     "Endpoint": {
       "Method": "GET",
-      "Path": "/documents/{id}",
-      "RequiresAuth": true
-    },
-    "Type": "Missing Authentication",
-    "Severity": "High",
-    "Details": "Endpoint returned HTTP 200 without authentication tokens"
-  },
-  {
-    "Endpoint": {
-      "Method": "GET",
-      "Path": "/documents/{id}",
-      "RequiresAuth": true
-    },
-    "Type": "BOLA/IDOR Vulnerability",
-    "Severity": "Critical",
-    "Details": "User B successfully accessed User A's resource (999) without authorization (HTTP 200)"
-  },
-  {
-    "Endpoint": {
-      "Method": "GET",
-      "Path": "/documents/{id}",
+      "Path": "/api/resource499/{id}",
       "RequiresAuth": true
     },
     "Type": "Missing Rate Limiting",
     "Severity": "Medium",
-    "Details": "Fired 50 concurrent requests to /documents/{id} but received no HTTP 429 Too Many Requests responses"
+    "Details": "Fired 50 concurrent requests to /api/resource499/{id} but received no HTTP 429 Too Many Requests responses"
   }
 ]
