@@ -14,6 +14,7 @@ import (
 
 	"github.com/bhushanwayal/warden/internal/auth"
 	"github.com/bhushanwayal/warden/internal/config"
+	"github.com/bhushanwayal/warden/internal/observability"
 	"github.com/bhushanwayal/warden/internal/proxy"
 	"github.com/bhushanwayal/warden/internal/ratelimit"
 	"github.com/bhushanwayal/warden/internal/scanner"
@@ -57,6 +58,9 @@ func main() {
 		slog.String("log_level", cfg.LogLevel),
 		slog.String("env", cfg.Env),
 	)
+
+	// Start asynchronous Prometheus metrics telemetry server on port 9090
+	observability.StartMetricsServer(":9090")
 
 	// Initialize reverse proxy handler
 	reverseProxy, err := proxy.New(cfg.UpstreamURL)
