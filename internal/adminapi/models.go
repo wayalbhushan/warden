@@ -32,3 +32,19 @@ type Finding struct {
 	UpdatedAt    time.Time      `json:"updated_at"`
 	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
 }
+
+// GatewayConfig stores global proxy security settings and thresholds.
+type GatewayConfig struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	WAFMode      string    `gorm:"type:varchar(20);default:'balanced'" json:"waf_mode"` // permissive, balanced, strict
+	RateLimitRPM int       `gorm:"default:100" json:"rate_limit_rpm"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+// BlockedIP represents an explicitly banned IP address in PostgreSQL.
+type BlockedIP struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	IP        string    `gorm:"type:varchar(45);uniqueIndex;not null" json:"ip"`
+	Reason    string    `gorm:"type:varchar(255)" json:"reason"`
+	CreatedAt time.Time `json:"created_at"`
+}

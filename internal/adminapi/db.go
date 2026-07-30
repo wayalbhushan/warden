@@ -15,8 +15,8 @@ func InitDB(dsn string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("failed to open postgres database connection: %w", err)
 	}
 
-	slog.Info("Executing GORM auto-migration for scan history tables...")
-	if err := db.AutoMigrate(&ScanReport{}, &Finding{}); err != nil {
+	slog.Info("Executing GORM auto-migration for scan history and configuration tables...")
+	if err := db.AutoMigrate(&ScanReport{}, &Finding{}, &GatewayConfig{}, &BlockedIP{}); err != nil {
 		return nil, fmt.Errorf("failed to auto-migrate postgres database schema: %w", err)
 	}
 
