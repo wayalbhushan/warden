@@ -17,8 +17,8 @@ import {
   RefreshCw,
   X,
   Radio,
-  Terminal,
   Zap,
+  SlidersHorizontal,
 } from "lucide-react";
 import { ToastContainer, ToastMessage } from "@/components/Toast";
 
@@ -108,6 +108,47 @@ function GlowDot({ color }: { color: string }) {
   );
 }
 
+// Glowing Flowing Packet Channel Component
+function FlowingChannelLine({ label, speed = "1.6s" }: { label: string; speed?: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 min-w-[100px]">
+      <span
+        className="text-[10px] font-mono uppercase tracking-wider"
+        style={{ color: "#71717a" }}
+      >
+        {label}
+      </span>
+      <div className="relative w-28 h-3 flex items-center justify-center">
+        {/* Connection Line */}
+        <div
+          className="w-full h-[2px] rounded-full"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(59,130,246,0.2) 0%, rgba(16,185,129,0.8) 50%, rgba(59,130,246,0.2) 100%)",
+          }}
+        />
+
+        {/* Animated Flowing Packet Particles */}
+        <span
+          className="absolute w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee] animate-flow-1"
+        />
+        <span
+          className="absolute w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-flow-2"
+        />
+        <span
+          className="absolute w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa] animate-flow-3"
+        />
+      </div>
+      <span
+        className="text-[9px] font-mono"
+        style={{ color: "#10b981" }}
+      >
+        8.4k pps ● &lt;0.2ms
+      </span>
+    </div>
+  );
+}
+
 function ResourceBar({
   label,
   value,
@@ -131,11 +172,7 @@ function ResourceBar({
 
   return (
     <div
-      className="p-5 rounded-lg flex flex-col group cursor-default transition-all"
-      style={{
-        backgroundColor: "#18181b",
-        border: `1px solid #27272a`,
-      }}
+      className="p-5 rounded-lg flex flex-col group cursor-default transition-all border border-zinc-800 bg-zinc-900"
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.borderColor = hoverBorder;
       }}
@@ -146,13 +183,11 @@ function ResourceBar({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Icon size={16} style={{ color: "#71717a" }} />
-          <span className="text-sm font-medium" style={{ color: "#a1a1aa" }}>
-            {label}
-          </span>
+          <span className="text-sm font-medium text-zinc-400">{label}</span>
         </div>
         <span
-          className="text-lg font-semibold tabular-nums"
-          style={{ color: barColor, fontFamily: "var(--font-jetbrains), monospace" }}
+          className="text-lg font-semibold tabular-nums font-mono"
+          style={{ color: barColor }}
         >
           {displayValue}
           {unit}
@@ -161,27 +196,23 @@ function ResourceBar({
 
       {unit === "%" ? (
         <>
-          <div
-            className="w-full h-1.5 rounded-full overflow-hidden"
-            style={{ backgroundColor: "#27272a" }}
-          >
+          <div className="w-full h-1.5 rounded-full overflow-hidden bg-zinc-800">
             <div
-              className="h-full rounded-full"
+              className="h-full rounded-full transition-all duration-1000 ease-out"
               style={{
                 width: `${value}%`,
                 backgroundColor: barColor,
-                transition: "width 1000ms ease-out, background-color 600ms",
               }}
             />
           </div>
-          <div className="mt-2 flex justify-between text-[10px]" style={{ color: "#52525b", fontFamily: "var(--font-jetbrains), monospace" }}>
+          <div className="mt-2 flex justify-between text-[10px] text-zinc-500 font-mono">
             <span>0%</span>
-            <span style={{ color: "#71717a" }}>{displayValue}% used</span>
+            <span className="text-zinc-400">{displayValue}% used</span>
             <span>100%</span>
           </div>
         </>
       ) : (
-        <div className="flex items-center justify-between text-xs mt-2" style={{ color: "#52525b", fontFamily: "var(--font-jetbrains), monospace" }}>
+        <div className="flex items-center justify-between text-xs mt-2 text-zinc-500 font-mono">
           <span>{subtitle}</span>
         </div>
       )}
@@ -213,7 +244,11 @@ export default function InfrastructurePage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  const addToast = (title: string, description?: string, type: "success" | "error" | "info" = "success") => {
+  const addToast = (
+    title: string,
+    description?: string,
+    type: "success" | "error" | "info" = "success"
+  ) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, title, description, type }]);
   };
@@ -276,11 +311,11 @@ export default function InfrastructurePage() {
       {/* ===== HEADER & ACTIONS ===== */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight" style={{ color: "#f4f4f5" }}>
-            Infrastructure Health
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-100">
+            Infrastructure Health & Packet Topology
           </h1>
-          <p className="text-sm mt-1" style={{ color: "#a1a1aa" }}>
-            Cluster topology, resource utilization, and subsystem status.
+          <p className="text-sm mt-1 text-zinc-400">
+            Live packet flow streams, cluster node topology, and security subsystem status.
           </p>
         </div>
 
@@ -291,16 +326,15 @@ export default function InfrastructurePage() {
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-medium bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-zinc-100 hover:border-zinc-700 transition-all cursor-pointer disabled:opacity-50"
           >
             <RefreshCw size={13} className={isSyncing ? "animate-spin text-blue-400" : ""} />
-            {isSyncing ? "Syncing..." : "Manual Sync"}
+            {isSyncing ? "Syncing..." : "Manual Cluster Sync"}
           </button>
 
           <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider font-mono"
             style={{
               backgroundColor: "rgba(16,185,129,0.08)",
               border: "1px solid rgba(16,185,129,0.2)",
               color: "#10b981",
-              fontFamily: "var(--font-jetbrains), monospace",
             }}
           >
             <GlowDot color="#10b981" />
@@ -347,48 +381,43 @@ export default function InfrastructurePage() {
         />
       </div>
 
-      {/* ===== CLUSTER TOPOLOGY ===== */}
-      <div
-        className="p-6 rounded-lg"
-        style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
-      >
+      {/* ===== ANIMATED PACKET FLOW TOPOLOGY ===== */}
+      <div className="p-6 rounded-lg border border-zinc-800 bg-zinc-900 shadow-2xl relative overflow-hidden">
         <div className="flex items-center justify-between mb-8">
-          <p
-            className="text-xs font-semibold uppercase tracking-widest"
-            style={{ color: "#52525b", fontFamily: "var(--font-jetbrains), monospace" }}
-          >
-            Interactive Network Topology (Click nodes to inspect)
-          </p>
-          <span className="text-[11px] text-zinc-500 font-mono">3 Cluster Nodes</span>
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal size={16} className="text-emerald-400" />
+            <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 font-mono">
+              Live Animated Packet Flow Stream (Click nodes to inspect)
+            </p>
+          </div>
+          <span className="text-xs text-emerald-400 font-mono flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            8,493 pps Live Packet Feed
+          </span>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 py-4">
-          {/* Public Internet */}
+        <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12 py-6">
+
+          {/* Node 1: Public Internet */}
           <div
             onClick={() => setSelectedNodeKey("internet")}
             className="flex flex-col items-center gap-3 cursor-pointer group"
           >
             <div
-              className="w-16 h-16 rounded-full flex items-center justify-center transition-all group-hover:border-blue-500"
-              style={{
-                backgroundColor: "#09090b",
-                border: "2px dashed #3f3f46",
-              }}
+              className="w-16 h-16 rounded-full flex items-center justify-center transition-all group-hover:border-blue-500 bg-zinc-950 border-2 border-dashed border-zinc-700 shadow-[0_0_15px_rgba(59,130,246,0.1)]"
             >
               <Activity size={24} className="text-zinc-400 group-hover:text-blue-400 transition-colors" />
             </div>
             <div className="text-center">
-              <span className="text-xs font-medium block text-zinc-300 group-hover:text-blue-400 transition-colors">Public Internet</span>
-              <span className="text-[10px] block text-zinc-500 font-mono">all clients</span>
+              <span className="text-xs font-semibold block text-zinc-200 group-hover:text-blue-400 transition-colors">Public Internet</span>
+              <span className="text-[10px] block text-zinc-500 font-mono">0.0.0.0/0 · HTTP/2</span>
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-1">
-            <ArrowRight size={20} className="text-zinc-600 animate-pulse hidden md:block" />
-            <span className="text-[10px] hidden md:block text-zinc-600 font-mono">HTTP</span>
-          </div>
+          {/* Flow Channel 1: Internet -> Warden */}
+          <FlowingChannelLine label="HTTP Ingress" />
 
-          {/* Warden Gateway — hero node */}
+          {/* Node 2: Warden Security Gateway (Hero Node) */}
           <div
             onClick={() => setSelectedNodeKey("warden")}
             className="flex flex-col items-center gap-3 relative cursor-pointer group"
@@ -399,49 +428,47 @@ export default function InfrastructurePage() {
             <div
               className="w-24 h-24 rounded-xl flex items-center justify-center relative transition-all group-hover:scale-105"
               style={{
-                backgroundColor: "rgba(16,185,129,0.05)",
+                backgroundColor: "rgba(16,185,129,0.08)",
                 border: "2px solid #10b981",
-                boxShadow: "0 0 24px rgba(16,185,129,0.12), 0 0 8px rgba(16,185,129,0.08)",
+                boxShadow: "0 0 30px rgba(16,185,129,0.2), 0 0 10px rgba(16,185,129,0.15)",
               }}
             >
-              <ShieldCheck size={40} className="text-emerald-500" />
+              <ShieldCheck size={44} className="text-emerald-400" />
             </div>
             <div className="text-center">
-              <span className="text-sm font-semibold block text-zinc-100 group-hover:text-emerald-400 transition-colors">Warden Node_01</span>
-              <span className="text-[10px] block text-emerald-400 font-mono">:8080 · ACTIVE</span>
+              <span className="text-sm font-bold block text-zinc-100 group-hover:text-emerald-400 transition-colors">Warden Node_01</span>
+              <span className="text-[10px] block text-emerald-400 font-mono">:8080 · WAF SANITIZING</span>
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-1">
-            <ArrowRight size={20} className="text-zinc-600 animate-pulse hidden md:block" />
-            <span className="text-[10px] hidden md:block text-zinc-600 font-mono">upstream</span>
-          </div>
+          {/* Flow Channel 2: Warden -> Upstream */}
+          <FlowingChannelLine label="Upstream Proxy" />
 
-          {/* Backend services */}
-          <div className="flex flex-col gap-3">
+          {/* Node 3: Backend Services */}
+          <div className="flex flex-col gap-4">
             <div
               onClick={() => setSelectedNodeKey("redis")}
-              className="flex items-center gap-3 p-3 rounded-lg w-52 cursor-pointer transition-all hover:border-blue-500/60 bg-zinc-950 border border-zinc-800"
+              className="flex items-center gap-3 p-3 rounded-lg w-56 cursor-pointer transition-all hover:border-blue-500/60 bg-zinc-950 border border-zinc-800 shadow-md"
             >
               <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 bg-blue-500/10 border border-blue-500/30">
                 <Database size={16} className="text-blue-400" />
               </div>
               <div>
                 <span className="text-xs font-medium block text-zinc-200">Redis Cluster</span>
-                <span className="text-[10px] block text-zinc-500 font-mono">Rate Limiter · BOLA</span>
+                <span className="text-[10px] block text-zinc-500 font-mono">Rate Limits & BOLA · :6379</span>
               </div>
             </div>
 
             <div
               onClick={() => setSelectedNodeKey("echo")}
-              className="flex items-center gap-3 p-3 rounded-lg w-52 cursor-pointer transition-all hover:border-purple-500/60 bg-zinc-950 border border-zinc-800"
+              className="flex items-center gap-3 p-3 rounded-lg w-56 cursor-pointer transition-all hover:border-purple-500/60 bg-zinc-950 border border-zinc-800 shadow-md"
             >
               <div className="w-8 h-8 rounded-md flex items-center justify-center shrink-0 bg-purple-500/10 border border-purple-500/30">
                 <Server size={16} className="text-purple-400" />
               </div>
               <div>
-                <span className="text-xs font-medium block text-zinc-200">Echo Target</span>
-                <span className="text-[10px] block text-zinc-500 font-mono">upstream · :8081</span>
+                <span className="text-xs font-medium block text-zinc-200">Echo Target API</span>
+                <span className="text-[10px] block text-zinc-500 font-mono">Sanitized Proxy · :8081</span>
               </div>
             </div>
           </div>
@@ -449,10 +476,7 @@ export default function InfrastructurePage() {
       </div>
 
       {/* ===== SECURITY MODULES STATUS ===== */}
-      <div
-        className="rounded-lg overflow-hidden"
-        style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
-      >
+      <div className="rounded-lg overflow-hidden border border-zinc-800 bg-zinc-900">
         <div className="px-6 py-4 flex items-center justify-between border-b border-zinc-800">
           <div>
             <h2 className="text-sm font-semibold text-zinc-100">
@@ -460,7 +484,7 @@ export default function InfrastructurePage() {
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">Click switches to activate or pause security modules</p>
           </div>
-          <span className="text-xs font-mono text-zinc-500">
+          <span className="text-xs font-mono text-zinc-400">
             {modules.filter((m) => m.status === "active").length} / {modules.length} Active
           </span>
         </div>
@@ -562,7 +586,7 @@ export default function InfrastructurePage() {
                 onClick={() => {
                   addToast("Ping Diagnostics", `Pinged ${selectedNode.name}: 0.4ms RTT`, "info");
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium transition-colors cursor-pointer"
               >
                 <Zap size={13} /> Ping Diagnostics
               </button>
