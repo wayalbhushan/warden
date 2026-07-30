@@ -18,6 +18,11 @@ func TestMissingAuth(endpoints []Endpoint, targetURL string) []Finding {
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        1000,
+			MaxIdleConnsPerHost: 100,
+			IdleConnTimeout:     90 * time.Second,
+		},
 	}
 
 	targetURL = strings.TrimSuffix(targetURL, "/")

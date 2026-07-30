@@ -33,3 +33,4 @@ Thumbs.db
 
 # Benchmark results
 scripts/*_results.txt
+large-api.json
