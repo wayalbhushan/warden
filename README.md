@@ -157,18 +157,15 @@ The Admin API exposes dedicated REST endpoints for querying database scan histor
 <div align="center">
 
 ### 🖥️ View 1: Real-time Live Telemetry & SOC Event Stream
-<img src="docs/screenshots/live-telemetry.png" alt="Live Telemetry Dashboard" width="100%" />
-
+<img src="./Demo/Screenshot%20(619).png" alt="Live Telemetry Dashboard" width="100%" />
 <br /><br />
 
 ### 🔍 View 2: Vulnerability Scan Reports & Remediation Guidance
-<img src="docs/screenshots/vulnerability-scans.png" alt="Vulnerability Scan Report View" width="100%" />
-
+<img src="./Demo/Screenshot%20(621).png" alt="Live Telemetry Dashboard" width="100%" />
 <br /><br />
 
 ### 🌐 View 3: Infrastructure Health & Animated Packet Topology
-<img src="docs/screenshots/infrastructure-topology.png" alt="Infrastructure Topology View" width="100%" />
-
+<img src="./Demo/Screenshot%20(622).png" alt="Live Telemetry Dashboard" width="100%" />
 </div>
 
 ---
