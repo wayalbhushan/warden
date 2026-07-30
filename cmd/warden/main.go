@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bhushanwayal/warden/internal/auth"
 	"github.com/bhushanwayal/warden/internal/config"
 	"github.com/bhushanwayal/warden/internal/proxy"
 	"github.com/bhushanwayal/warden/internal/ratelimit"
@@ -46,6 +47,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize JWT validator
+	jwtValidator := auth.NewJWTValidator(cfg.JWTSecret)
+	authMiddleware := auth.NewAuthMiddleware(jwtValidator)
+
 	// Initialize Redis client and Rate Limiter (fail-open if Redis unavailable)
 	var rateLimiter ratelimit.RateLimiter
 	redisClient, err := ratelimit.NewRedisClient(cfg.RedisURL)
@@ -60,9 +65,9 @@ func main() {
 		slog.Info("Redis token bucket rate limiter initialized", slog.String("redis_url", cfg.RedisURL))
 	}
 
-	// Build handler chain with rate limiting middleware (5 requests per 1 minute for test verification)
+	// Build middleware chain: RateLimitMiddleware -> AuthMiddleware -> ReverseProxy
 	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 5, time.Minute)
-	protectedHandler := rateLimitMiddleware(reverseProxy)
+	protectedHandler := rateLimitMiddleware(authMiddleware(reverseProxy))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", protectedHandler)

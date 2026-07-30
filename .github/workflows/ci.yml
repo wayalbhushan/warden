@@ -38,3 +38,6 @@ jobs:
 
       - name: Build Echo Server Binary
         run: go build -v -o bin/echo-server ./cmd/echo-server
+
+      - name: Build Token Generation Binary
+        run: go build -v -o bin/tokengen ./cmd/tokengen
