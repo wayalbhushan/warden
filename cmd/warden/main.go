@@ -15,6 +15,7 @@ import (
 	"github.com/bhushanwayal/warden/internal/config"
 	"github.com/bhushanwayal/warden/internal/proxy"
 	"github.com/bhushanwayal/warden/internal/ratelimit"
+	"github.com/bhushanwayal/warden/internal/security"
 )
 
 func main() {
@@ -51,23 +52,31 @@ func main() {
 	jwtValidator := auth.NewJWTValidator(cfg.JWTSecret)
 	authMiddleware := auth.NewAuthMiddleware(jwtValidator)
 
-	// Initialize Redis client and Rate Limiter (fail-open if Redis unavailable)
+	// Initialize Redis client, Rate Limiter, and BOLA Engine (fail-open if Redis unavailable)
 	var rateLimiter ratelimit.RateLimiter
+	var bolaEngine *security.BOLAEngine
+
 	redisClient, err := ratelimit.NewRedisClient(cfg.RedisURL)
 	if err != nil {
-		slog.Warn("Redis rate limiter connection unavailable, starting gateway without rate limiting (fail-open)",
+		slog.Warn("Redis connection unavailable, starting gateway without rate limiting and BOLA engine (fail-open)",
 			slog.String("redis_url", cfg.RedisURL),
 			slog.String("error", err.Error()),
 		)
 	} else {
 		defer redisClient.Close()
 		rateLimiter = ratelimit.NewTokenBucket(redisClient)
-		slog.Info("Redis token bucket rate limiter initialized", slog.String("redis_url", cfg.RedisURL))
+		bolaEngine = security.NewBOLAEngine(redisClient, 5, 1*time.Minute)
+		slog.Info("Redis token bucket rate limiter & BOLA engine initialized", slog.String("redis_url", cfg.RedisURL))
 	}
 
-	// Build middleware chain: RateLimitMiddleware -> AuthMiddleware -> ReverseProxy
+	// Initialize Security Engines (Signature WAF & SSRF Engine)
+	sigEngine := security.NewSignatureEngine()
+	ssrfEngine := security.NewSSRPEngine()
+	securityMiddleware := security.NewSecurityMiddleware(sigEngine, ssrfEngine, bolaEngine)
+
+	// Build middleware execution chain: RateLimit -> Auth -> Security -> ReverseProxy
 	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 5, time.Minute)
-	protectedHandler := rateLimitMiddleware(authMiddleware(reverseProxy))
+	protectedHandler := rateLimitMiddleware(authMiddleware(securityMiddleware(reverseProxy)))
 
 	mux := http.NewServeMux()
 	mux.Handle("/", protectedHandler)
