@@ -26,6 +26,10 @@ func TestProxyForwarding(t *testing.T) {
 		t.Fatalf("failed to create proxy: %v", err)
 	}
 
+	if p.ActiveRequests() != 0 {
+		t.Errorf("expected 0 active requests initially, got %d", p.ActiveRequests())
+	}
+
 	// Record request through proxy
 	req := httptest.NewRequest(http.MethodGet, "/test-path", nil)
 	rec := httptest.NewRecorder()
@@ -38,6 +42,10 @@ func TestProxyForwarding(t *testing.T) {
 
 	if rec.Header().Get("X-Warden-Gateway") != "active" {
 		t.Errorf("expected X-Warden-Gateway response header to be 'active', got %q", rec.Header().Get("X-Warden-Gateway"))
+	}
+
+	if p.ActiveRequests() != 0 {
+		t.Errorf("expected 0 active requests after completion, got %d", p.ActiveRequests())
 	}
 }
 

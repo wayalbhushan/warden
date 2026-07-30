@@ -7,13 +7,15 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 	"time"
 )
 
 // Proxy handles reverse proxy request routing and traffic forwarding to upstream services.
 type Proxy struct {
-	targetURL    *url.URL
-	reverseProxy *httputil.ReverseProxy
+	targetURL      *url.URL
+	reverseProxy   *httputil.ReverseProxy
+	activeRequests atomic.Int64
 }
 
 // responseWriterWrapper captures the HTTP status code written by the proxy.
@@ -103,8 +105,16 @@ func New(targetURLStr string) (*Proxy, error) {
 	}, nil
 }
 
+// ActiveRequests returns the current number of active in-flight requests.
+func (p *Proxy) ActiveRequests() int64 {
+	return p.activeRequests.Load()
+}
+
 // ServeHTTP intercepts incoming HTTP requests, logs metadata, and forwards to upstream backend.
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	p.activeRequests.Add(1)
+	defer p.activeRequests.Add(-1)
+
 	start := time.Now()
 	wrapper := &responseWriterWrapper{
 		ResponseWriter: w,
@@ -121,5 +131,6 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		slog.String("remote_addr", r.RemoteAddr),
 		slog.Int("status", wrapper.statusCode),
 		slog.Duration("latency", duration),
+		slog.Int64("active_requests", p.activeRequests.Load()),
 	)
 }
