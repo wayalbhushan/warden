@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bhushanwayal/warden/internal/observability"
 )
 
 // NewRateLimitMiddleware creates an HTTP middleware enforcing rate limits via a RateLimiter instance.
@@ -36,6 +38,7 @@ func NewRateLimitMiddleware(limiter RateLimiter, limit int, window time.Duration
 			w.Header().Set("X-RateLimit-Remaining", strconv.Itoa(remaining))
 
 			if !allowed {
+				observability.RateLimitDropsTotal.Inc()
 				slog.Warn("rate limit exceeded",
 					slog.String("client_ip", clientIP),
 					slog.String("path", r.URL.Path),

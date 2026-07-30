@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bhushanwayal/warden/internal/auth"
+	"github.com/bhushanwayal/warden/internal/observability"
 )
 
 type securityResponse struct {
@@ -43,6 +44,7 @@ func NewSecurityMiddleware(sig *SignatureEngine, ssrf *SSRPEngine, bola *BOLAEng
 			}
 
 			if matched {
+				observability.SecurityBlocksTotal.WithLabelValues(threatType).Inc()
 				clientIP := extractClientIP(r)
 				slog.Warn("security threat detected and blocked",
 					slog.String("threat_type", threatType),
