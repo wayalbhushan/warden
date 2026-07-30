@@ -79,6 +79,14 @@ function StatusBadge({ status }: { status: Metrics["status"] }) {
   );
 }
 
+// Helper to format IST time
+function getISTTimeString(): string {
+  return new Date().toLocaleTimeString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour12: false,
+  });
+}
+
 export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics>({
     throughput: 0,
@@ -91,7 +99,10 @@ export default function Dashboard() {
   const [events, setEvents] = useState<EventLogItem[]>(initialEvents);
   const [clock, setClock] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<"1m" | "5m" | "15m" | "1h">("5m");
+
+  // Attack burst state (10s duration)
   const [isSimulatingBurst, setIsSimulatingBurst] = useState(false);
+  const [burstCountdown, setBurstCountdown] = useState(0);
 
   // Modals
   const [showLogModal, setShowLogModal] = useState(false);
@@ -121,7 +132,7 @@ export default function Dashboard() {
         const prev = prevRef.current;
 
         if (prev && data.status === "online") {
-          const nowStr = new Date().toLocaleTimeString("en-GB", { hour12: false });
+          const nowStr = getISTTimeString();
           if (data.threats > (prev.threats ?? 0)) {
             setEvents((e) => [
               { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "new security threat blocked", tag: "WAF" },
@@ -150,8 +161,7 @@ export default function Dashboard() {
     fetchMetrics();
     const id = setInterval(fetchMetrics, 2000);
 
-    const tick = () =>
-      setClock(new Date().toLocaleTimeString("en-GB", { hour12: false }));
+    const tick = () => setClock(getISTTimeString());
     tick();
     const clockId = setInterval(tick, 1000);
 
@@ -161,30 +171,43 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Action: Simulate Attack Burst
+  // Action: Simulate Attack Burst for 10 Seconds
   const handleSimulateBurst = () => {
+    if (isSimulatingBurst) return;
+
     setIsSimulatingBurst(true);
-    addToast("Attack Burst Triggered", "Injecting 5 simulated malicious payloads...", "error");
+    setBurstCountdown(10);
+    addToast("Attack Burst Triggered", "Injecting 10s malicious payload stream...", "error");
 
-    const nowStr = new Date().toLocaleTimeString("en-GB", { hour12: false });
-    const burstEvents: EventLogItem[] = [
-      { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "SQL Injection attack blocked on /api/users", tag: "SQLi" },
-      { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "SSRF IP probing blocked (169.254.169.254)", tag: "SSRF" },
-      { time: nowStr, type: "RATE",   color: "#f59e0b", bg: "rgba(245,158,11,0.08)", msg: "DDoS rate limit exceeded (100 req/s)", tag: "429" },
-      { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "BOLA cross-user resource access denied", tag: "BOLA" },
-    ];
+    let secondsLeft = 10;
+    const interval = setInterval(() => {
+      secondsLeft -= 1;
+      setBurstCountdown(secondsLeft);
 
-    setEvents((prev) => [...burstEvents, ...prev]);
-    setMetrics((m) => ({
-      ...m,
-      throughput: m.throughput + 42,
-      threats: m.threats + 3,
-      rateLimitDrops: m.rateLimitDrops + 1,
-    }));
+      const nowStr = getISTTimeString();
+      const pool: EventLogItem[] = [
+        { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "SQL Injection attack blocked on /api/users", tag: "SQLi" },
+        { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "SSRF IP probing blocked (169.254.169.254)", tag: "SSRF" },
+        { time: nowStr, type: "RATE",   color: "#f59e0b", bg: "rgba(245,158,11,0.08)", msg: "DDoS rate limit exceeded (120 req/s)", tag: "429" },
+        { time: nowStr, type: "THREAT", color: "#ef4444", bg: "rgba(239,68,68,0.08)", msg: "BOLA cross-user access denied on /api/doc/99", tag: "BOLA" },
+      ];
 
-    setTimeout(() => {
-      setIsSimulatingBurst(false);
-    }, 1500);
+      const item = pool[Math.floor(Math.random() * pool.length)];
+
+      setEvents((prev) => [item, ...prev.slice(0, 19)]);
+      setMetrics((m) => ({
+        ...m,
+        throughput: m.throughput + Math.floor(Math.random() * 15 + 10),
+        threats: item.type === "THREAT" ? m.threats + 1 : m.threats,
+        rateLimitDrops: item.type === "RATE" ? m.rateLimitDrops + 1 : m.rateLimitDrops,
+      }));
+
+      if (secondsLeft <= 0) {
+        clearInterval(interval);
+        setIsSimulatingBurst(false);
+        addToast("Attack Burst Completed", "WAF Engine successfully mitigated all threat vectors over 10s duration.", "success");
+      }
+    }, 1000);
   };
 
   // Action: Reset Events / Flush
@@ -239,27 +262,32 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Attack Burst Button with 10s Countdown */}
           <button
             onClick={handleSimulateBurst}
             disabled={isSimulatingBurst}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all active:scale-95 cursor-pointer ${
+              isSimulatingBurst
+                ? "bg-red-500/20 border border-red-500 text-red-400 animate-pulse cursor-wait"
+                : "bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20"
+            }`}
           >
-            <Flame size={14} className={isSimulatingBurst ? "animate-bounce" : ""} />
-            Simulate Attack Burst
+            <Flame size={14} className={isSimulatingBurst ? "animate-bounce text-red-500" : ""} />
+            {isSimulatingBurst ? `Attack Bursting (${burstCountdown}s)...` : "Simulate Attack Burst"}
           </button>
 
           <StatusBadge status={metrics.status} />
 
+          {/* IST Time Display */}
           <div
-            className="text-xs px-3 py-1.5 rounded-md shrink-0"
+            className="text-xs px-3 py-1.5 rounded-md shrink-0 font-mono"
             style={{
               backgroundColor: "#18181b",
               border: "1px solid #27272a",
               color: "#a1a1aa",
-              fontFamily: "var(--font-jetbrains), monospace",
             }}
           >
-            {clock ? `${clock} UTC` : "——:——:—— UTC"}
+            {clock ? `${clock} IST` : "——:——:—— IST"}
           </div>
         </div>
       </div>

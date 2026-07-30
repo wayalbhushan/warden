@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import {
   Search,
   ShieldAlert,
@@ -510,7 +510,7 @@ if !allowedTypes[fileHeader.Header.Get("Content-Type")] {
                 const isLast = i === filteredFindings.length - 1;
 
                 return (
-                  <tr key={finding.id} className="contents">
+                  <Fragment key={finding.id}>
                     <tr
                       onClick={() => setExpandedId(isExpanded ? null : finding.id)}
                       style={{
@@ -664,7 +664,7 @@ if !allowedTypes[fileHeader.Header.Get("Content-Type")] {
                         </td>
                       </tr>
                     )}
-                  </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
