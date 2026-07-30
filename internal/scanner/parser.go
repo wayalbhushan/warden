@@ -14,6 +14,14 @@ type Endpoint struct {
 	RequiresAuth bool
 }
 
+// Finding represents a security vulnerability discovered during active scanning.
+type Finding struct {
+	Endpoint Endpoint
+	Type     string
+	Severity string
+	Details  string
+}
+
 // ParseSpec loads and parses an OpenAPI 3.x spec from a file path into a list of Endpoints.
 func ParseSpec(filePath string) ([]Endpoint, error) {
 	ctx := context.Background()
