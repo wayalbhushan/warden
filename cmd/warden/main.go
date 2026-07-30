@@ -25,6 +25,7 @@ func main() {
 		slog.String("service", "warden"),
 		slog.Int("port", cfg.Port),
 		slog.String("upstream_url", cfg.UpstreamURL),
+		slog.String("redis_url", cfg.RedisURL),
 		slog.String("log_level", cfg.LogLevel),
 		slog.String("env", cfg.Env),
 	)

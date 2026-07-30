@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Port        int    `json:"port"`
 	UpstreamURL string `json:"upstream_url"`
+	RedisURL    string `json:"redis_url"`
 	LogLevel    string `json:"log_level"`
 	Env         string `json:"env"`
 }
@@ -26,6 +27,7 @@ func Load() (*Config, error) {
 	return &Config{
 		Port:        port,
 		UpstreamURL: getEnv("UPSTREAM_URL", "http://localhost:8081"),
+		RedisURL:    getEnv("REDIS_URL", "localhost:6379"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		Env:         getEnv("ENV", "development"),
 	}, nil
