@@ -8,7 +8,7 @@ import (
 )
 
 // RunScan parses the provided OpenAPI spec file, executes active security checks, logs findings, and saves warden-report.json.
-func RunScan(specPath string, targetURL string, configPath string) error {
+func RunScan(specPath string, targetURL string, configPath string) ([]Finding, error) {
 	slog.Info("Starting OpenAPI spec scanner mode",
 		slog.String("spec_path", specPath),
 		slog.String("target_url", targetURL),
@@ -19,10 +19,10 @@ func RunScan(specPath string, targetURL string, configPath string) error {
 	if configPath != "" {
 		data, err := os.ReadFile(configPath)
 		if err != nil {
-			return fmt.Errorf("failed to read scan config file %s: %w", configPath, err)
+			return nil, fmt.Errorf("failed to read scan config file %s: %w", configPath, err)
 		}
 		if err := json.Unmarshal(data, &scanCfg); err != nil {
-			return fmt.Errorf("failed to parse scan config JSON: %w", err)
+			return nil, fmt.Errorf("failed to parse scan config JSON: %w", err)
 		}
 		slog.Info("Loaded scan configuration for multi-user BOLA testing",
 			slog.String("resource_id_a", scanCfg.ResourceIDA),
@@ -31,7 +31,7 @@ func RunScan(specPath string, targetURL string, configPath string) error {
 
 	endpoints, err := ParseSpec(specPath)
 	if err != nil {
-		return fmt.Errorf("scan failed: %w", err)
+		return nil, fmt.Errorf("scan failed: %w", err)
 	}
 
 	slog.Info("OpenAPI spec parsed successfully", slog.Int("endpoint_count", len(endpoints)))
@@ -78,15 +78,15 @@ func RunScan(specPath string, targetURL string, configPath string) error {
 	// Generate and save structured JSON vulnerability report
 	reportData, err := json.MarshalIndent(allFindings, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to generate JSON vulnerability report: %w", err)
+		return nil, fmt.Errorf("failed to generate JSON vulnerability report: %w", err)
 	}
 
 	reportFile := "warden-report.json"
 	if err := os.WriteFile(reportFile, reportData, 0644); err != nil {
-		return fmt.Errorf("failed to save vulnerability report to %s: %w", reportFile, err)
+		return nil, fmt.Errorf("failed to save vulnerability report to %s: %w", reportFile, err)
 	}
 
 	slog.Info("Structured security vulnerability report saved successfully", slog.String("report_file", reportFile))
 
-	return nil
+	return allFindings, nil
 }

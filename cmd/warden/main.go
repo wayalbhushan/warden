@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bhushanwayal/warden/internal/adminapi"
 	"github.com/bhushanwayal/warden/internal/auth"
 	"github.com/bhushanwayal/warden/internal/config"
 	"github.com/bhushanwayal/warden/internal/observability"
@@ -26,6 +27,7 @@ func main() {
 	scanPath := flag.String("scan", "", "Path to OpenAPI JSON/YAML spec file to run active security scan")
 	targetURL := flag.String("target", "", "Base URL of the target API for scanner mode")
 	configPath := flag.String("config", "", "Path to optional scan config JSON file (contains tokens & resource IDs)")
+	persistDB := flag.Bool("persist-db", false, "Optionally persist scan report results to PostgreSQL database")
 	flag.Parse()
 
 	// Initialize JSON structured logger using Go standard library slog
@@ -36,10 +38,34 @@ func main() {
 
 	// If -scan flag is set, execute scanner mode and exit without starting HTTP server
 	if *scanPath != "" {
-		if err := scanner.RunScan(*scanPath, *targetURL, *configPath); err != nil {
+		findings, err := scanner.RunScan(*scanPath, *targetURL, *configPath)
+		if err != nil {
 			slog.Error("Scanner mode failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
+
+		if *persistDB {
+			dsn := os.Getenv("DATABASE_URL")
+			if dsn == "" {
+				dsn = "host=localhost user=warden password=wardenpass dbname=wardendb port=5432 sslmode=disable"
+			}
+			payloads := make([]adminapi.FindingPayload, len(findings))
+			for i, f := range findings {
+				payloads[i] = adminapi.FindingPayload{
+					Type:     f.Type,
+					Severity: f.Severity,
+					Method:   f.Endpoint.Method,
+					Path:     f.Endpoint.Path,
+					Details:  f.Details,
+				}
+			}
+			if err := adminapi.SaveScanReport(dsn, *targetURL, *scanPath, payloads); err != nil {
+				slog.Error("Failed to persist scan report to PostgreSQL database", slog.String("error", err.Error()))
+			} else {
+				slog.Info("Successfully persisted scan report to PostgreSQL database")
+			}
+		}
+
 		os.Exit(0)
 	}
 
