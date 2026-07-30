@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/bhushanwayal/warden/internal/config"
@@ -52,10 +56,40 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	slog.Info("Warden gateway server started", slog.Int("port", cfg.Port), slog.String("upstream", cfg.UpstreamURL))
+	// Channel to capture server startup or listener errors
+	serverErr := make(chan error, 1)
 
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		slog.Error("Warden gateway server failed", slog.String("error", err.Error()))
+	// Start server asynchronously in a separate goroutine
+	go func() {
+		slog.Info("Warden gateway server started", slog.Int("port", cfg.Port), slog.String("upstream", cfg.UpstreamURL))
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+		}
+	}()
+
+	// Signal channel for catching OS interrupt / termination signals
+	stopSignal := make(chan os.Signal, 1)
+	signal.Notify(stopSignal, os.Interrupt, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErr:
+		slog.Error("Warden gateway server failed to start", slog.String("error", err.Error()))
 		os.Exit(1)
+
+	case sig := <-stopSignal:
+		slog.Info("Shutdown signal received",
+			slog.String("signal", sig.String()),
+			slog.Int64("active_connections", reverseProxy.ActiveRequests()),
+		)
+
+		// Create 15-second timeout context for graceful request draining
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(ctx); err != nil {
+			slog.Error("Forced shutdown error", slog.String("error", err.Error()))
+		} else {
+			slog.Info("Server stopped gracefully", slog.Int64("remaining_active_connections", reverseProxy.ActiveRequests()))
+		}
 	}
 }
