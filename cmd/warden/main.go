@@ -13,6 +13,7 @@ import (
 
 	"github.com/bhushanwayal/warden/internal/config"
 	"github.com/bhushanwayal/warden/internal/proxy"
+	"github.com/bhushanwayal/warden/internal/ratelimit"
 )
 
 func main() {
@@ -45,8 +46,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize Redis client and Rate Limiter (fail-open if Redis unavailable)
+	var rateLimiter ratelimit.RateLimiter
+	redisClient, err := ratelimit.NewRedisClient(cfg.RedisURL)
+	if err != nil {
+		slog.Warn("Redis rate limiter connection unavailable, starting gateway without rate limiting (fail-open)",
+			slog.String("redis_url", cfg.RedisURL),
+			slog.String("error", err.Error()),
+		)
+	} else {
+		defer redisClient.Close()
+		rateLimiter = ratelimit.NewTokenBucket(redisClient)
+		slog.Info("Redis token bucket rate limiter initialized", slog.String("redis_url", cfg.RedisURL))
+	}
+
+	// Build handler chain with rate limiting middleware (5 requests per 1 minute for test verification)
+	rateLimitMiddleware := ratelimit.NewRateLimitMiddleware(rateLimiter, 5, time.Minute)
+	protectedHandler := rateLimitMiddleware(reverseProxy)
+
 	mux := http.NewServeMux()
-	mux.Handle("/", reverseProxy)
+	mux.Handle("/", protectedHandler)
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
