@@ -71,6 +71,9 @@ func main() {
 		})
 	})
 
+	// Register scan history and findings REST routes
+	adminapi.RegisterRoutes(router, db)
+
 	port := os.Getenv("ADMIN_API_PORT")
 	if port == "" {
 		port = "8082"
