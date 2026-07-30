@@ -7,7 +7,7 @@ import { Activity, ShieldAlert, Server, Settings, Search } from "lucide-react";
 const navItems = [
   { href: "/",      icon: Activity,     label: "Live Telemetry" },
   { href: "/scans", icon: Search,       label: "Vulnerability Scans" },
-  { href: "/infra", icon: Server,       label: "Infrastructure" },
+  { href: "/infrastructure", icon: Server, label: "Infrastructure" },
 ];
 
 export default function Sidebar() {
