@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Source_Serif_4, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Activity, ShieldAlert, Server, ArrowRight } from "lucide-react";
+import { Activity, ShieldAlert, Server, Settings, Search } from "lucide-react";
+import { NavLink } from "./components";
 
-const playfair = Playfair_Display({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-playfair",
-  display: "swap",
-});
-const sourceSerif = Source_Serif_4({
-  subsets: ["latin"],
-  variable: "--font-source-serif",
+  variable: "--font-inter",
   display: "swap",
 });
 const jetbrains = JetBrains_Mono({
@@ -20,112 +16,127 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WARDEN // Gateway",
-  description: "Enterprise API Security Gateway — Minimalist Security Operations Dashboard",
+  title: "Warden | Security Operations",
+  description: "API Security Gateway — Enterprise Security Operations Dashboard",
 };
+
+const navItems = [
+  { href: "#", icon: Activity, label: "Live Telemetry", active: true },
+  { href: "#", icon: Search, label: "Vulnerability Scans", active: false },
+  { href: "#", icon: Server, label: "Infrastructure", active: false },
+];
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <body
-        className={`${playfair.variable} ${sourceSerif.variable} ${jetbrains.variable} min-h-screen flex flex-col md:flex-row`}
+        className={`${inter.variable} ${jetbrains.variable} min-h-screen flex`}
+        style={{ backgroundColor: "#09090b", color: "#f4f4f5" }}
       >
         {/* ===== SIDEBAR ===== */}
         <aside
-          style={{ fontFamily: "var(--font-jetbrains), monospace" }}
-          className="w-full md:w-64 border-b-4 md:border-b-0 md:border-r-4 border-black bg-white flex flex-col z-10"
+          className="w-64 flex flex-col shrink-0"
+          style={{ backgroundColor: "#09090b", borderRight: "1px solid #27272a" }}
         >
-          {/* Logo / Brand */}
-          <div className="p-6 border-b-4 border-black">
-            <h1
-              style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
-              className="text-3xl font-black tracking-tighter leading-none"
-            >
-              WARDEN
-            </h1>
-            <p className="text-[10px] tracking-widest mt-2 uppercase opacity-60">
-              API Security Gateway
-            </p>
+          {/* Brand */}
+          <div
+            className="h-14 flex items-center px-4"
+            style={{ borderBottom: "1px solid #27272a" }}
+          >
+            <div className="flex items-center gap-2 font-semibold" style={{ color: "#f4f4f5" }}>
+              <ShieldAlert size={20} style={{ color: "#3b82f6" }} />
+              <span>
+                Warden
+                <span style={{ color: "#a1a1aa", fontWeight: 400 }}> / Gateway</span>
+              </span>
+            </div>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 flex flex-col">
-            {/* Active item */}
-            <a
-              href="#"
-              className="flex items-center justify-between p-4 border-b border-black bg-black text-white cursor-pointer"
+          <nav className="flex-1 overflow-y-auto p-3">
+            <div
+              className="text-xs uppercase tracking-wider mb-2 mt-4 px-2"
+              style={{
+                color: "#a1a1aa",
+                fontFamily: "var(--font-jetbrains), monospace",
+                letterSpacing: "0.1em",
+              }}
             >
-              <div className="flex items-center gap-3">
-                <Activity size={18} strokeWidth={2} />
-                <span className="text-xs uppercase tracking-widest font-bold">
-                  Live Telemetry
-                </span>
-              </div>
-              <ArrowRight size={16} strokeWidth={2} />
-            </a>
+              Dashboards
+            </div>
 
-            {/* Inactive items — instant invert on hover */}
-            <a
-              href="#"
-              className="flex items-center justify-between p-4 border-b border-black hover:bg-black hover:text-white cursor-pointer"
-              style={{ transition: "none" }}
-            >
-              <div className="flex items-center gap-3">
-                <ShieldAlert size={18} strokeWidth={1.5} />
-                <span className="text-xs uppercase tracking-widest">
-                  Vulnerability Audits
-                </span>
-              </div>
-            </a>
-
-            <a
-              href="#"
-              className="flex items-center justify-between p-4 border-b border-black hover:bg-black hover:text-white cursor-pointer"
-              style={{ transition: "none" }}
-            >
-              <div className="flex items-center gap-3">
-                <Server size={18} strokeWidth={1.5} />
-                <span className="text-xs uppercase tracking-widest">
-                  Gateway Health
-                </span>
-              </div>
-            </a>
+            {navItems.map(({ href, icon: Icon, label, active }) => (
+              <NavLink key={label} href={href} active={active}>
+                <Icon size={16} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
           </nav>
 
-          {/* Target cluster footer */}
-          <div className="p-6 border-t-2 border-black">
-            <p className="text-xs mb-1 uppercase tracking-widest opacity-60">Target Cluster</p>
-            <p
-              style={{ fontFamily: "var(--font-playfair), Georgia, serif" }}
-              className="text-lg font-bold"
+          {/* User footer */}
+          <div
+            className="p-4 flex items-center gap-3"
+            style={{ borderTop: "1px solid #27272a" }}
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: "#27272a", border: "1px solid #3f3f46" }}
             >
-              localhost:8080
-            </p>
+              <Settings size={14} style={{ color: "#a1a1aa" }} />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-medium" style={{ color: "#f4f4f5" }}>Admin User</span>
+              <span
+                className="text-[10px]"
+                style={{ color: "#a1a1aa", fontFamily: "var(--font-jetbrains), monospace" }}
+              >
+                SOC Analyst
+              </span>
+            </div>
           </div>
         </aside>
 
         {/* ===== MAIN CONTENT ===== */}
-        <main className="flex-1 flex flex-col min-h-screen">
-          {/* Header bar */}
-          <header className="h-16 border-b-2 border-black flex items-center justify-between px-6 bg-white z-10">
-            <div className="flex items-center gap-4">
-              <div className="w-3 h-3 bg-black" />
+        <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+          {/* Top bar */}
+          <header
+            className="h-14 flex items-center justify-between px-6 sticky top-0 z-10"
+            style={{
+              borderBottom: "1px solid #27272a",
+              backgroundColor: "rgba(9,9,11,0.75)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            {/* Breadcrumb */}
+            <div
+              className="flex items-center gap-2 text-sm"
+              style={{ color: "#a1a1aa" }}
+            >
+              <span>Overview</span>
+              <span style={{ opacity: 0.4 }}>/</span>
+              <span style={{ color: "#f4f4f5", fontWeight: 500 }}>Live Telemetry</span>
+            </div>
+
+            {/* Status badge */}
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+              style={{ backgroundColor: "#18181b", border: "1px solid #27272a" }}
+            >
               <span
-                style={{ fontFamily: "var(--font-jetbrains), monospace" }}
-                className="text-sm tracking-widest uppercase font-bold"
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{ backgroundColor: "#10b981", boxShadow: "0 0 0 3px rgba(16,185,129,0.15)" }}
+              />
+              <span
+                className="text-xs"
+                style={{ color: "#a1a1aa", fontFamily: "var(--font-jetbrains), monospace" }}
               >
-                System Operational
+                Target: localhost:8080
               </span>
             </div>
-            <span
-              style={{ fontFamily: "var(--font-jetbrains), monospace" }}
-              className="text-sm"
-            >
-              UTC {new Date().toISOString().split("T")[1].substring(0, 8)}
-            </span>
           </header>
 
-          <div className="flex-1 overflow-auto">{children}</div>
+          {/* Page content */}
+          <div className="flex-1 overflow-auto p-6">{children}</div>
         </main>
       </body>
     </html>
