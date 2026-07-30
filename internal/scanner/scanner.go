@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-// RunScan parses the provided OpenAPI spec file, executes active security checks, and logs findings.
+// RunScan parses the provided OpenAPI spec file, executes active security checks, logs findings, and saves warden-report.json.
 func RunScan(specPath string, targetURL string, configPath string) error {
 	slog.Info("Starting OpenAPI spec scanner mode",
 		slog.String("spec_path", specPath),
@@ -56,6 +56,10 @@ func RunScan(specPath string, targetURL string, configPath string) error {
 	bolaFindings := TestBOLA(endpoints, targetURL, scanCfg)
 	allFindings = append(allFindings, bolaFindings...)
 
+	// Module 3: Rate Limit Bypass Scanner
+	rateLimitFindings := TestRateLimit(endpoints, targetURL)
+	allFindings = append(allFindings, rateLimitFindings...)
+
 	if len(allFindings) == 0 {
 		slog.Info("Scan completed cleanly: 0 security vulnerabilities detected")
 	} else {
@@ -70,6 +74,19 @@ func RunScan(specPath string, targetURL string, configPath string) error {
 			)
 		}
 	}
+
+	// Generate and save structured JSON vulnerability report
+	reportData, err := json.MarshalIndent(allFindings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to generate JSON vulnerability report: %w", err)
+	}
+
+	reportFile := "warden-report.json"
+	if err := os.WriteFile(reportFile, reportData, 0644); err != nil {
+		return fmt.Errorf("failed to save vulnerability report to %s: %w", reportFile, err)
+	}
+
+	slog.Info("Structured security vulnerability report saved successfully", slog.String("report_file", reportFile))
 
 	return nil
 }
