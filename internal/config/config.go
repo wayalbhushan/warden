@@ -11,6 +11,7 @@ type Config struct {
 	Port        int    `json:"port"`
 	UpstreamURL string `json:"upstream_url"`
 	RedisURL    string `json:"redis_url"`
+	JWTSecret   string `json:"-"`
 	LogLevel    string `json:"log_level"`
 	Env         string `json:"env"`
 }
@@ -28,6 +29,7 @@ func Load() (*Config, error) {
 		Port:        port,
 		UpstreamURL: getEnv("UPSTREAM_URL", "http://localhost:8081"),
 		RedisURL:    getEnv("REDIS_URL", "localhost:6379"),
+		JWTSecret:   getEnv("JWT_SECRET", "warden-dev-secret-key"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 		Env:         getEnv("ENV", "development"),
 	}, nil
