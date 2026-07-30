@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -26,7 +27,7 @@ func (rw *responseWriterWrapper) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-// New creates a new Proxy instance targeting the specified upstream URL.
+// New creates a new Proxy instance targeting the specified upstream URL with optimized transport connection pooling.
 func New(targetURLStr string) (*Proxy, error) {
 	parsedURL, err := url.Parse(targetURLStr)
 	if err != nil {
@@ -34,6 +35,26 @@ func New(targetURLStr string) (*Proxy, error) {
 	}
 
 	rp := httputil.NewSingleHostReverseProxy(parsedURL)
+
+	// Configure production-grade HTTP transport for high-throughput connection reuse
+	dialer := &net.Dialer{
+		Timeout:   30 * time.Second, // Connection establishment timeout
+		KeepAlive: 30 * time.Second, // TCP keep-alive probe interval
+	}
+
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           dialer.DialContext,
+		MaxIdleConns:          500,              // High total idle connection limit to support high concurrency
+		MaxIdleConnsPerHost:   100,              // Retain active connections per host to reduce TCP handshake overhead
+		IdleConnTimeout:       90 * time.Second, // Keep idle connections alive for reuse without socket leak
+		TLSHandshakeTimeout:   10 * time.Second, // TLS handshake timeout for HTTPS upstreams
+		ExpectContinueTimeout: 1 * time.Second,  // 100-continue header response timeout
+		ResponseHeaderTimeout: 30 * time.Second, // Max wait time for upstream response headers
+		ForceAttemptHTTP2:     true,             // Attempt HTTP/2 for upstreams supporting protocol negotiation
+	}
+
+	rp.Transport = transport
 
 	// Wrap original director to customize request headers
 	originalDirector := rp.Director
