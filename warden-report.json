@@ -2,11 +2,21 @@
   {
     "Endpoint": {
       "Method": "GET",
-      "Path": "/api/resource499/{id}",
+      "Path": "/documents/{id}",
+      "RequiresAuth": true
+    },
+    "Type": "Missing Authentication",
+    "Severity": "High",
+    "Details": "Endpoint returned HTTP 200 without authentication tokens"
+  },
+  {
+    "Endpoint": {
+      "Method": "GET",
+      "Path": "/documents/{id}",
       "RequiresAuth": true
     },
     "Type": "Missing Rate Limiting",
     "Severity": "Medium",
-    "Details": "Fired 50 concurrent requests to /api/resource499/{id} but received no HTTP 429 Too Many Requests responses"
+    "Details": "Fired 50 concurrent requests to /documents/{id} but received no HTTP 429 Too Many Requests responses"
   }
 ]
