@@ -23,6 +23,7 @@ type ScanReport struct {
 type Finding struct {
 	ID           uint           `gorm:"primaryKey" json:"id"`
 	ScanReportID uint           `gorm:"index;not null" json:"scan_report_id"`
+	ScanReport   *ScanReport    `gorm:"foreignKey:ScanReportID" json:"scan_report,omitempty"`
 	Type         string         `gorm:"type:varchar(100);not null" json:"type"`
 	Severity     string         `gorm:"type:varchar(50);not null" json:"severity"`
 	Method       string         `gorm:"type:varchar(20)" json:"method"`
@@ -44,7 +45,7 @@ type GatewayConfig struct {
 // BlockedIP represents an explicitly banned IP address in PostgreSQL.
 type BlockedIP struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
-	IP        string    `gorm:"type:varchar(45);uniqueIndex;not null" json:"ip"`
+	IPAddress string    `gorm:"type:varchar(45);uniqueIndex;not null" json:"ip_address"`
 	Reason    string    `gorm:"type:varchar(255)" json:"reason"`
 	CreatedAt time.Time `json:"created_at"`
 }

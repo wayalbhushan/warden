@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -25,13 +26,14 @@ type ScanReportResponse struct {
 
 // FindingDetail represents an individual vulnerability finding in a scan report
 type FindingDetail struct {
-	ID           uint   `json:"id"`
-	ScanReportID uint   `json:"scan_report_id"`
-	Type         string `json:"type"`
-	Severity     string `json:"severity"`
-	Method       string `json:"method"`
-	Path         string `json:"path"`
-	Details      string `json:"details"`
+	ID           uint                `json:"id"`
+	ScanReportID uint                `json:"scan_report_id"`
+	ScanReport   *ScanReportResponse `json:"scan_report,omitempty"`
+	Type         string              `json:"type"`
+	Severity     string              `json:"severity"`
+	Method       string              `json:"method"`
+	Path         string              `json:"path"`
+	Details      string              `json:"details"`
 }
 
 // ScanReportDetailResponse mirrors the JSON structure returned by Admin API GET /api/scans/:id
@@ -64,6 +66,14 @@ func main() {
 		mcp.WithNumber("scan_id", mcp.Required(), mcp.Description("The numeric ID of the scan report to retrieve (e.g. 1)")),
 	)
 	s.AddTool(getFindingsTool, handleGetScanFindings)
+
+	// Define 'get_critical_findings' MCP tool
+	getCriticalTool := mcp.NewTool(
+		"get_critical_findings",
+		mcp.WithDescription("Retrieves all vulnerability findings of a specified severity level (default 'Critical') across all Warden scans, useful for getting a quick security posture overview."),
+		mcp.WithString("severity", mcp.Description("Optional severity level to filter by: Critical, High, Medium, Low (default: Critical)")),
+	)
+	s.AddTool(getCriticalTool, handleGetCriticalFindings)
 
 	// Run MCP server over stdio transport
 	if err := server.ServeStdio(s); err != nil {
@@ -172,7 +182,6 @@ func handleGetScanFindings(ctx context.Context, request mcp.CallToolRequest) (*m
 	}
 	defer resp.Body.Close()
 
-	// Handle 404 Not Found explicitly
 	if resp.StatusCode == http.StatusNotFound {
 		return mcp.NewToolResultText(fmt.Sprintf("No scan report found with ID #%d in Warden database. Use 'list_recent_scans' to see all valid scan IDs.", scanID)), nil
 	}
@@ -201,18 +210,69 @@ func handleGetScanFindings(ctx context.Context, request mcp.CallToolRequest) (*m
 	output += "### 🚨 Discovered Vulnerabilities\n\n"
 
 	for i, f := range report.Findings {
-		var severityIcon string
-		switch f.Severity {
-		case "Critical":
-			severityIcon = "🚨 **[CRITICAL]**"
-		case "High":
-			severityIcon = "⚠️ **[HIGH]**"
-		case "Medium":
-			severityIcon = "🟡 **[MEDIUM]**"
-		case "Low":
-			severityIcon = "🔵 **[LOW]**"
-		default:
-			severityIcon = fmt.Sprintf("⚠️ **[%s]**", f.Severity)
+		severityBadge := formatSeverityBadge(f.Severity)
+
+		endpointStr := f.Path
+		if f.Method != "" {
+			endpointStr = fmt.Sprintf("%s %s", f.Method, f.Path)
+		}
+
+		output += fmt.Sprintf("#### %d. %s %s\n", i+1, severityBadge, f.Type)
+		output += fmt.Sprintf("- **Affected Endpoint:** `%s`\n", endpointStr)
+		output += fmt.Sprintf("- **Details:** %s\n\n", f.Details)
+	}
+
+	return mcp.NewToolResultText(output), nil
+}
+
+func handleGetCriticalFindings(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	severity := "Critical"
+	if args, ok := request.Params.Arguments.(map[string]any); ok && args != nil {
+		if val, ok := args["severity"].(string); ok && strings.TrimSpace(val) != "" {
+			severity = strings.TrimSpace(val)
+		}
+	}
+
+	// Title case formatting (e.g. "critical" -> "Critical")
+	formattedSeverity := strings.Title(strings.ToLower(severity))
+
+	baseURL := getAdminAPIBaseURL()
+	endpoint := fmt.Sprintf("%s/api/findings?severity=%s", baseURL, formattedSeverity)
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to construct HTTP request to Admin API: %v", err)), nil
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Unable to connect to Warden Admin API at %s. Error: %v", baseURL, err)), nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return mcp.NewToolResultError(fmt.Sprintf("Warden Admin API returned HTTP status %d (%s): %s", resp.StatusCode, resp.Status, string(bodyBytes))), nil
+	}
+
+	var findings []FindingDetail
+	if err := json.NewDecoder(resp.Body).Decode(&findings); err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to decode findings JSON response: %v", err)), nil
+	}
+
+	if len(findings) == 0 {
+		return mcp.NewToolResultText(fmt.Sprintf("✅ **No %s-severity findings across any scan.** Warden's monitored surface is currently clean at this severity level.", formattedSeverity)), nil
+	}
+
+	output := fmt.Sprintf("### 🛡️ Warden Aggregated Vulnerability Findings (Severity: %s — %d Total)\n\n", formattedSeverity, len(findings))
+
+	for i, f := range findings {
+		severityBadge := formatSeverityBadge(f.Severity)
+
+		targetURL := "Unknown Target"
+		if f.ScanReport != nil && f.ScanReport.TargetURL != "" {
+			targetURL = f.ScanReport.TargetURL
 		}
 
 		endpointStr := f.Path
@@ -220,10 +280,26 @@ func handleGetScanFindings(ctx context.Context, request mcp.CallToolRequest) (*m
 			endpointStr = fmt.Sprintf("%s %s", f.Method, f.Path)
 		}
 
-		output += fmt.Sprintf("#### %d. %s %s\n", i+1, severityIcon, f.Type)
+		output += fmt.Sprintf("#### %d. %s %s\n", i+1, severityBadge, f.Type)
+		output += fmt.Sprintf("- **Originating Scan:** Report `#%d` (Target: `%s`)\n", f.ScanReportID, targetURL)
 		output += fmt.Sprintf("- **Affected Endpoint:** `%s`\n", endpointStr)
 		output += fmt.Sprintf("- **Details:** %s\n\n", f.Details)
 	}
 
 	return mcp.NewToolResultText(output), nil
+}
+
+func formatSeverityBadge(severity string) string {
+	switch strings.Title(strings.ToLower(severity)) {
+	case "Critical":
+		return "🚨 **[CRITICAL]**"
+	case "High":
+		return "⚠️ **[HIGH]**"
+	case "Medium":
+		return "🟡 **[MEDIUM]**"
+	case "Low":
+		return "🔵 **[LOW]**"
+	default:
+		return fmt.Sprintf("⚠️ **[%s]**", strings.ToUpper(severity))
+	}
 }

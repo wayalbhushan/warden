@@ -61,7 +61,7 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		severity := c.Query("severity")
 		var findings []Finding
 
-		query := db.Model(&Finding{})
+		query := db.Model(&Finding{}).Preload("ScanReport")
 		if severity != "" {
 			query = query.Where("severity = ?", severity)
 		}
@@ -201,8 +201,8 @@ func RegisterRoutes(r *gin.Engine, db *gorm.DB) {
 		}
 
 		entry := BlockedIP{
-			IP:     strings.TrimSpace(input.IP),
-			Reason: input.Reason,
+			IPAddress: strings.TrimSpace(input.IP),
+			Reason:    input.Reason,
 		}
 
 		if err := db.Create(&entry).Error; err != nil {
