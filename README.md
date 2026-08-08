@@ -2,13 +2,15 @@
 
 # 🛡️ WARDEN
 
-### Concurrent API Security Gateway, Active Vulnerability Scanner & Admin API
+### Concurrent API Security Gateway, Active Vulnerability Scanner, Admin API & MCP Server
 
 **Built in Go. Designed to catch the exact vulnerability class most APIs ship with by accident.**
 
-[![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
 [![Gin Framework](https://img.shields.io/badge/Gin_Framework-008080?style=for-the-badge&logo=gin&logoColor=white)](https://gin-gonic.com/)
 [![GORM](https://img.shields.io/badge/GORM-PostgreSQL-0064a5?style=for-the-badge&logo=postgresql&logoColor=white)](https://gorm.io/)
+[![SQLite Fallback](https://img.shields.io/badge/SQLite-Resilient_Fallback-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Model Context Protocol](https://img.shields.io/badge/MCP-Model_Context_Protocol-8A2BE2?style=for-the-badge&logo=anthropic&logoColor=white)](https://modelcontextprotocol.io/)
 [![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
 [![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)](https://prometheus.io/)
 [![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -16,7 +18,7 @@
 
 <br />
 
-[Features](#-what-warden-actually-does) • [Architecture](#-system-architecture) • [Admin API](#-admin-api-service-port-8082) • [Dashboard Showcase](#-dashboard-showcase) • [Quickstart](#-quickstart) • [Benchmarks](#-benchmarks)
+[Features](#-what-warden-actually-does) • [Architecture](#-system-architecture) • [Admin API](#-admin-api-service-port-8082) • [MCP Server](#-model-context-protocol-mcp-ai-server) • [Dashboard Showcase](#-dashboard-showcase) • [Quickstart](#-quickstart)
 
 </div>
 
@@ -28,13 +30,13 @@ Most API gateways handle routing, rate limiting, and auth. Almost none of them a
 
 I found a live IDOR vulnerability in one of my own projects during a manual security audit — a bug where one authenticated user could reach another user's private data just by changing an ID in a request. Fixing it by hand taught me exactly what that vulnerability class looks like on the wire. Warden is what happens when you take that specific lesson and build software that watches for it automatically, in real time, on every request that passes through.
 
-This isn't a rate limiter tutorial with security bolted on for buzzword coverage. The security engine — WAF pattern matching, SSRF defense, BOLA detection, the standalone OpenAPI vulnerability scanner, and the Gin/GORM Admin API — is the actual point of the project.
+This isn't a rate limiter tutorial with security bolted on for buzzword coverage. The security engine — WAF pattern matching, SSRF defense, BOLA detection, the standalone OpenAPI vulnerability scanner, the Gin/GORM Admin API with SQLite fallback, and the native Model Context Protocol (MCP) AI Server — is the actual point of the project.
 
 ---
 
 ## ⚙️ What Warden Actually Does
 
-Warden operates in three modular execution layers:
+Warden operates in four modular execution layers:
 
 ### 1. Inline Reverse Proxy Security Gateway Mode (`cmd/warden`)
 Sits between clients and upstream microservices. Every request passes through a layered defensive pipeline in sub-3.5ms:
@@ -81,15 +83,23 @@ warden -scan ./api-spec.json -target http://localhost:8081 -persist-db
 - **Missing Authentication Engine**: Fires unauthenticated HTTP requests at protected endpoints to verify auth enforcement.
 - **BOLA / IDOR Cross-Token Tester**: Uses User A and User B credentials to test cross-tenant object access automatically.
 - **Rate Limit Enforcement Tester**: Fires concurrent request bursts to verify HTTP 429 response enforcement.
-- **Dual Persistence**: Exports `warden-report.json` and optionally pushes report findings directly into PostgreSQL via `-persist-db`.
+- **Dual Persistence**: Exports `warden-report.json` and automatically pushes report findings directly into PostgreSQL / SQLite via `-persist-db`.
 
 <br />
 
 ### 3. Admin API REST Service (`cmd/admin-api`)
-A standalone management service built with **Gin** and **GORM** (PostgreSQL) running on port `8082`:
-- Query scan report history and filter findings by severity.
+A standalone management service built with **Gin** and **GORM** running on port `8082`:
+- Query scan report history and filter findings by severity (`Critical`, `High`, `Medium`, `Low`).
 - Manage global WAF sensitivity modes (`permissive`, `balanced`, `strict`) and IP blocklists.
-- Isolated from live gateway execution for zero latency overhead.
+- **Zero-Downtime Database Resiliency**: Automatically falls back to local **SQLite** (`warden-admin.db`) if PostgreSQL is offline in local dev environments.
+
+<br />
+
+### 4. Model Context Protocol (MCP) AI Server (`mcp-server/`)
+A native Go implementation of Anthropic's **Model Context Protocol (MCP)** using `github.com/mark3labs/mcp-go`. Allows AI assistants (**Claude Desktop**, **Cursor**, **Windsurf**) to query Warden's vulnerability scans and security posture via stdio transport:
+- **`list_recent_scans`**: Lists recent scan reports (takes optional `limit` parameter).
+- **`get_scan_findings`**: Retrieves detailed findings for a specific scan ID with severity badges and remediations (handles 404s gracefully).
+- **`get_critical_findings`**: Aggregates vulnerabilities across all scans by severity with scan provenance (ID & Target URL) and positive "clean surface" responses.
 
 ---
 
@@ -120,17 +130,22 @@ A standalone management service built with **Gin** and **GORM** (PostgreSQL) run
                                                └─────────────────┘
 
  ─────────────────────────────────────────────────────────────────────────────
- ADMIN & PERSISTENCE LAYER (ISOLATED MANAGEMENT SERVICE)
+ ADMIN, PERSISTENCE & MCP AI INTEGRATION LAYER
 
-┌──────────────────────┐                     ┌───────────────────────────┐
-│ Warden Scanner CLI   ├────────────────────►│ PostgreSQL Database       │
-│ (warden -scan)       │   Persist Report    │ (wardendb :5432)          │
-└──────────────────────┘   (-persist-db)     └─────────────▲─────────────┘
-                                                           │ GORM ORM
-                                             ┌─────────────┴─────────────┐
-                                             │ Warden Admin API          │
-                                             │ (Gin REST Engine :8082)   │
-                                             └───────────────────────────┘
+ ┌──────────────────────┐    Persist Report    ┌───────────────────────────┐
+ │ Warden Scanner CLI   ├─────────────────────►│ PostgreSQL / SQLite DB    │
+ │ (warden -scan)       │    (-persist-db)     │ (wardendb :5432)          │
+ └──────────────────────┘                      └─────────────▲─────────────┘
+                                                             │ GORM ORM
+                                               ┌─────────────┴─────────────┐
+ ┌──────────────────────┐                      │ Warden Admin API          │
+ │ AI Assistant Clients │── MCP stdio transport│ (Gin REST Engine :8082)   │
+ │ (Claude Desktop)     │─────────────────────►└─────────────▲─────────────┘
+ └──────────────────────┘   (warden-mcp.exe)                 │ HTTP REST
+                                               ┌─────────────┴─────────────┐
+                                               │ Warden MCP Server         │
+                                               │ (mcp-server/main.go)      │
+                                               └───────────────────────────┘
 ```
 
 ---
@@ -141,94 +156,77 @@ The Admin API exposes dedicated REST endpoints for querying database scan histor
 
 | Category | Endpoint | Method | Description |
 |---|---|---|---|
-| **Health** | `/health` | `GET` | Health check & PostgreSQL connection status |
+| **Health** | `/health` | `GET` | Health check & DB connection status (`postgres` or `sqlite`) |
 | **Scan History** | `/api/scans` | `GET` | Paginated scan reports ordered by `generated_at desc` |
 | **Scan Details** | `/api/scans/:id` | `GET` | Full scan report details with preloaded findings |
 | **Findings** | `/api/findings` | `GET` | Filter findings across scans (e.g. `?severity=Critical`) |
 | **Gateway Config** | `/api/config` | `GET`/`PUT` | Get or update WAF mode (`permissive`/`balanced`/`strict`) & rate limits |
 | **IP Blocklist** | `/api/blocked-ips` | `GET`/`POST`/`DELETE` | List, add, or unblock IP addresses |
 
-> For complete documentation, payload examples, and cURL commands, see [ADMIN_API.md](ADMIN_API.md).
-
 ---
 
-## 📸 Dashboard Showcase
+## 🤖 Model Context Protocol (MCP) AI Server
 
-<div align="center">
+Warden includes a production-grade MCP server built using the official Go SDK (`github.com/mark3labs/mcp-go`). It allows AI agents to inspect your API security posture natively.
 
-### 🖥️ View 1: Real-time Live Telemetry & SOC Event Stream
-<img src="./Demo/Screenshot%20(619).png" alt="Live Telemetry Dashboard" width="100%" />
-<br /><br />
+### Available MCP Tools
 
-### 🔍 View 2: Vulnerability Scan Reports & Remediation Guidance
-<img src="./Demo/Screenshot%20(621).png" alt="Live Telemetry Dashboard" width="100%" />
-<br /><br />
+| Tool Name | Parameters | Description |
+|---|---|---|
+| `list_recent_scans` | `limit` (int, default 10) | Lists recent vulnerability scan reports with target URL, timestamp, and finding counts. |
+| `get_scan_findings` | `scan_id` (int, required) | Retrieves full security findings for a specific scan ID with severity badges & remediations. |
+| `get_critical_findings` | `severity` (string, default "Critical") | Aggregates findings by severity level across all scans with target URL provenance. |
 
-### 🌐 View 3: Infrastructure Health & Animated Packet Topology
-<img src="./Demo/Screenshot%20(622).png" alt="Live Telemetry Dashboard" width="100%" />
-</div>
+### Claude Desktop Configuration (`claude_desktop_config.json`)
+
+Add Warden's compiled binary to your Claude Desktop configuration:
+
+```json
+{
+  "mcpServers": {
+    "warden": {
+      "command": "C:\\Users\\wayal\\Desktop\\Warden\\warden-mcp.exe",
+      "env": {
+        "WARDEN_ADMIN_API_URL": "http://localhost:8082"
+      }
+    }
+  }
+}
+```
+
+### Example Natural-Language AI Prompts
+- *"What vulnerability scans have run recently on Warden?"*
+- *"Show me the findings from scan report 1."*
+- *"Are there any high severity vulnerabilities across our Warden scans?"*
+- *"Do we have any critical vulnerabilities right now?"*
 
 ---
 
 ## 🚀 Quickstart
 
-### 1. Launch Stack via Docker Compose
-
+### Option 1: Full Stack via Docker Compose
 ```bash
 docker-compose up -d
 ```
 
-Starts Warden Gateway (`:8080`), Admin API (`:8082`), Echo Backend (`:8081`), Redis (`:6379`), and PostgreSQL (`:5432`).
-
-<br />
-
-### 2. Run Active Scanner with DB Persistence
-
+### Option 2: Manual Local Build
 ```bash
+# 1. Start Infrastructure
+docker run -d --name warden-postgres -p 5432:5432 -e POSTGRES_USER=warden -e POSTGRES_PASSWORD=wardenpass -e POSTGRES_DB=wardendb postgres:16-alpine
+docker run -d --name warden-redis -p 6379:6379 redis:alpine
+
+# 2. Run Admin API Service
+go run cmd/admin-api/main.go
+
+# 3. Run Vulnerability Scanner
 go run cmd/warden/main.go -scan ./dummy-bola-api.json -target http://localhost:8081 -persist-db
-```
 
-<br />
-
-### 3. Run Benchmark Suite
-
-```bash
-bash scripts/benchmark.sh
+# 4. Build MCP AI Server
+go build -o warden-mcp.exe ./mcp-server
 ```
 
 ---
 
-## 📈 Performance Benchmarks
+## 📜 License
 
-| Scenario | Total Requests | Concurrency | Throughput | Avg Latency | Latency Overhead |
-|---|---|---|---|---|---|
-| **Direct Backend (No Gateway)** | 10,000 | 100 | ~8,750 req/s | 11.2 ms | Baseline |
-| **Through Warden (Full Pipeline)** | 10,000 | 100 | **~8,493 req/s** | **14.5 ms** | **+3.3 ms** |
-| **OpenAPI 500-Endpoint Scan** | 500 paths | 10 | Completed in 1.4s | N/A | Full Scan & JSON Report |
-
----
-
-## 🔧 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Core Gateway** | Go 1.22+, `net/http/httputil` |
-| **Admin API Service** | Gin Web Framework, GORM ORM |
-| **Database** | PostgreSQL 16 (production), SQLite (in-memory test suite) |
-| **Rate Limiting** | Redis (sliding-window token bucket, atomic Lua scripts) |
-| **Auth** | Bearer JWT (HS256 signature validation) |
-| **Scanner Parser** | `kin-openapi` (OpenAPI 3.0 resolution) |
-| **Observability** | Prometheus client, structured metrics server (`:9090`) |
-| **Dashboard UI** | Next.js 16 (App Router), TypeScript, Tailwind CSS v4 |
-
----
-
-## 📄 License
-
-Distributed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-<i>Built by <a href="https://github.com/wayalbhushan">Bhushan Wayal</a> — Security engineer who builds the tools he wishes existed.</i>
-</div>
+Distributed under the MIT License. See `LICENSE` for details.
