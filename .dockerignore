@@ -1,0 +1,7 @@
+.git
+dashboard/node_modules
+dashboard/.next
+dashboard/out
+warden-mcp.exe
+warden-report.json
+warden-admin.db

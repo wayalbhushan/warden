@@ -18,7 +18,7 @@ func getDSN() string {
 
 	host := os.Getenv("POSTGRES_HOST")
 	if host == "" {
-		host = "localhost"
+		host = "127.0.0.1"
 	}
 	port := os.Getenv("POSTGRES_PORT")
 	if port == "" {
@@ -50,24 +50,24 @@ func main() {
 
 	var db *gorm.DB
 	dsn := getDSN()
-	
-	// Attempt database initialization
+
+	// Initialize database (connects to PostgreSQL or falls back to local SQLite warden-admin.db)
 	database, err := adminapi.InitDB(dsn)
 	if err != nil {
-		slog.Warn("PostgreSQL database initialization skipped (running without DB connection)", "reason", err)
-	} else {
-		db = database
+		slog.Error("Fatal: Database initialization failed", "error", err)
+		os.Exit(1)
 	}
+	db = database
 
 	router := gin.Default()
 
 	// Health check route
 	router.GET("/health", func(c *gin.Context) {
-		dbConnected := db != nil
 		c.JSON(http.StatusOK, gin.H{
 			"status":       "ok",
 			"service":      "warden-admin-api",
-			"db_connected": dbConnected,
+			"db_connected": db != nil,
+			"db_driver":    db.Dialector.Name(),
 		})
 	})
 
